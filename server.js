@@ -28,68 +28,65 @@ const toToolResult = (data) => ({
   content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
 });
 
-async function searchEntity(entity, query) {
+async function searchContact(query) {
   const res = await http.get("/search", {
-    params: { q: query, include: entity },
+    params: { q: query, include: "contact" },
   });
 
   return {
     success: true,
-    entity,
     query,
     results: res.data,
   };
 }
 
-async function createEntity(endpoint, wrapperKey, payload) {
-  const res = await http.post(endpoint, { [wrapperKey]: payload });
+async function createContact(contact) {
+  const res = await http.post("/contacts", { contact });
   return {
     success: true,
-    entity: wrapperKey,
-    data: res.data[wrapperKey] ?? res.data,
+    contact: res.data.contact ?? res.data,
   };
 }
 
-async function editEntity(endpoint, wrapperKey, id, payload) {
-  const res = await http.put(`${endpoint}/${id}`, { [wrapperKey]: payload });
+async function updateContact(id, contact) {
+  const res = await http.put(`/contacts/${id}`, { contact });
   return {
     success: true,
-    entity: wrapperKey,
     id,
-    data: res.data[wrapperKey] ?? res.data,
+    contact: res.data.contact ?? res.data,
+  };
+}
+
+async function createNote(note) {
+  const res = await http.post("/notes", { note });
+  return {
+    success: true,
+    note: res.data.note ?? res.data,
+  };
+}
+
+async function createDeal(deal) {
+  const res = await http.post("/deals", { deal });
+  return {
+    success: true,
+    deal: res.data.deal ?? res.data,
   };
 }
 
 async function runTool(name, args = {}) {
   switch (name) {
-    case "search_contacts":
-      return searchEntity("contact", args.query);
+    case "search_contact":
+      return searchContact(args.query);
     case "create_contact":
-      return createEntity("/contacts", "contact", args.contact);
+      return createContact(args.contact);
+    case "update_contact":
+      return updateContact(args.id, args.contact);
     case "edit_contact":
-      return editEntity("/contacts", "contact", args.id, args.contact);
-
-    case "search_notes":
-      return searchEntity("note", args.query);
+      return updateContact(args.id, args.contact);
     case "create_note":
-      return createEntity("/notes", "note", args.note);
-    case "edit_note":
-      return editEntity("/notes", "note", args.id, args.note);
-
-    case "search_deals":
-      return searchEntity("deal", args.query);
+      return createNote(args.note);
     case "create_deal":
-      return createEntity("/deals", "deal", args.deal);
-    case "edit_deal":
-      return editEntity("/deals", "deal", args.id, args.deal);
-
-    case "search_appointments":
-      return searchEntity("appointment", args.query);
-    case "create_appointment":
-      return createEntity("/appointments", "appointment", args.appointment);
-    case "edit_appointment":
-      return editEntity("/appointments", "appointment", args.id, args.appointment);
-
+      return createDeal(args.deal);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
@@ -161,11 +158,13 @@ function getTools() {
 
   return [
     {
-      name: "search_contacts",
-      description: "Search contacts in Freshsales.",
+      name: "search_contact",
+      description: "Search a contact in Freshsales by name, email, or text query.",
       inputSchema: {
         type: "object",
-        properties: { query: { type: "string" } },
+        properties: {
+          query: { type: "string", description: "Search text." },
+        },
         required: ["query"],
       },
     },
@@ -176,35 +175,68 @@ function getTools() {
         type: "object",
         properties: {
           contact: {
-            ...contactSchema,
-            description: "Contact payload used by Freshsales contacts endpoint.",
+            type: "object",
+            description: "Contact payload sent to Freshsales /contacts.",
+            properties: {
+              first_name: { type: "string" },
+              last_name: { type: "string" },
+              email: { type: "string" },
+              mobile_number: { type: "string" },
+              work_number: { type: "string" },
+              city: { type: "string" },
+            },
+            additionalProperties: true,
           },
         },
         required: ["contact"],
       },
     },
     {
-      name: "edit_contact",
-      description: "Edit an existing contact by id.",
+      name: "update_contact",
+      description: "Update an existing contact by Freshsales contact ID.",
       inputSchema: {
         type: "object",
         properties: {
           id: { type: "number", description: "Freshsales contact ID." },
           contact: {
-            ...contactSchema,
+            type: "object",
             description: "Partial contact payload with fields to update.",
+            properties: {
+              first_name: { type: "string" },
+              last_name: { type: "string" },
+              email: { type: "string" },
+              mobile_number: { type: "string" },
+              work_number: { type: "string" },
+              city: { type: "string" },
+            },
+            additionalProperties: true,
           },
         },
         required: ["id", "contact"],
       },
     },
     {
-      name: "search_notes",
-      description: "Search notes in Freshsales.",
+      name: "edit_contact",
+      description: "Edit an existing contact by Freshsales contact ID.",
       inputSchema: {
         type: "object",
-        properties: { query: { type: "string" } },
-        required: ["query"],
+        properties: {
+          id: { type: "number", description: "Freshsales contact ID." },
+          contact: {
+            type: "object",
+            description: "Partial contact payload with fields to update.",
+            properties: {
+              first_name: { type: "string" },
+              last_name: { type: "string" },
+              email: { type: "string" },
+              mobile_number: { type: "string" },
+              work_number: { type: "string" },
+              city: { type: "string" },
+            },
+            additionalProperties: true,
+          },
+        },
+        required: ["id", "contact"],
       },
     },
     {
@@ -214,35 +246,18 @@ function getTools() {
         type: "object",
         properties: {
           note: {
-            ...noteSchema,
-            description: "Note payload used by Freshsales notes endpoint.",
+            type: "object",
+            description: "Note payload sent to Freshsales /notes.",
+            properties: {
+              description: { type: "string" },
+              targetable_type: { type: "string" },
+              targetable_id: { type: "number" },
+            },
+            required: ["description", "targetable_type", "targetable_id"],
+            additionalProperties: true,
           },
         },
         required: ["note"],
-      },
-    },
-    {
-      name: "edit_note",
-      description: "Edit an existing note by id.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          id: { type: "number", description: "Freshsales note ID." },
-          note: {
-            ...noteSchema,
-            description: "Partial note payload with fields to update.",
-          },
-        },
-        required: ["id", "note"],
-      },
-    },
-    {
-      name: "search_deals",
-      description: "Search deals in Freshsales.",
-      inputSchema: {
-        type: "object",
-        properties: { query: { type: "string" } },
-        required: ["query"],
       },
     },
     {
@@ -252,65 +267,19 @@ function getTools() {
         type: "object",
         properties: {
           deal: {
-            ...dealSchema,
-            description: "Deal payload used by Freshsales deals endpoint.",
+            type: "object",
+            description: "Deal payload sent to Freshsales /deals.",
+            properties: {
+              name: { type: "string" },
+              amount: { type: "number" },
+              expected_close: { type: "string" },
+              contact_id: { type: "number" },
+              stage_id: { type: "number" },
+            },
+            additionalProperties: true,
           },
         },
         required: ["deal"],
-      },
-    },
-    {
-      name: "edit_deal",
-      description: "Edit an existing deal by id.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          id: { type: "number", description: "Freshsales deal ID." },
-          deal: {
-            ...dealSchema,
-            description: "Partial deal payload with fields to update.",
-          },
-        },
-        required: ["id", "deal"],
-      },
-    },
-    {
-      name: "search_appointments",
-      description: "Search appointments in Freshsales.",
-      inputSchema: {
-        type: "object",
-        properties: { query: { type: "string" } },
-        required: ["query"],
-      },
-    },
-    {
-      name: "create_appointment",
-      description: "Create an appointment in Freshsales.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          appointment: {
-            ...appointmentSchema,
-            description:
-              "Appointment payload used by Freshsales appointments endpoint.",
-          },
-        },
-        required: ["appointment"],
-      },
-    },
-    {
-      name: "edit_appointment",
-      description: "Edit an existing appointment by id.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          id: { type: "number", description: "Freshsales appointment ID." },
-          appointment: {
-            ...appointmentSchema,
-            description: "Partial appointment payload with fields to update.",
-          },
-        },
-        required: ["id", "appointment"],
       },
     },
   ];
@@ -320,7 +289,7 @@ async function main() {
   const server = new Server(
     {
       name: "freshsales-basic-mcp",
-      version: "2.0.0",
+      version: "2.1.0",
     },
     {
       capabilities: { tools: {} },
@@ -342,7 +311,7 @@ async function main() {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Freshsales Basic MCP Server (v2.0.0) running...");
+  console.error("Freshsales Basic MCP Server (v2.1.0) running...");
 }
 
 main().catch((err) => {
