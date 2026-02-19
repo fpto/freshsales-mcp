@@ -96,6 +96,69 @@ async function runTool(name, args = {}) {
 }
 
 function getTools() {
+  const contactSchema = {
+    type: "object",
+    properties: {
+      first_name: { type: "string", description: "Contact first name." },
+      last_name: { type: "string", description: "Contact last name." },
+      email: { type: "string", description: "Primary email address." },
+      mobile_number: { type: "string", description: "Mobile phone number." },
+      work_number: { type: "string", description: "Work phone number." },
+      city: { type: "string", description: "City." },
+    },
+    additionalProperties: true,
+  };
+
+  const noteSchema = {
+    type: "object",
+    properties: {
+      description: { type: "string", description: "Note content." },
+      targetable_type: {
+        type: "string",
+        description: "Entity type, usually 'Contact'.",
+      },
+      targetable_id: {
+        type: "number",
+        description: "ID of the related entity.",
+      },
+    },
+    required: ["description", "targetable_type", "targetable_id"],
+    additionalProperties: true,
+  };
+
+  const dealSchema = {
+    type: "object",
+    properties: {
+      name: { type: "string", description: "Deal name." },
+      amount: { type: "number", description: "Deal value." },
+      expected_close: {
+        type: "string",
+        description: "Expected close date (YYYY-MM-DD).",
+      },
+      contact_id: { type: "number", description: "Primary contact ID." },
+      stage_id: { type: "number", description: "Sales stage ID." },
+    },
+    additionalProperties: true,
+  };
+
+  const appointmentSchema = {
+    type: "object",
+    properties: {
+      title: { type: "string", description: "Appointment title." },
+      from_date: {
+        type: "string",
+        description: "Start datetime in ISO 8601 format.",
+      },
+      end_date: {
+        type: "string",
+        description: "End datetime in ISO 8601 format.",
+      },
+      owner_id: { type: "number", description: "Owner user ID." },
+      contact_id: { type: "number", description: "Related contact ID." },
+    },
+    additionalProperties: true,
+  };
+
   return [
     {
       name: "search_contacts",
@@ -111,7 +174,12 @@ function getTools() {
       description: "Create a contact in Freshsales.",
       inputSchema: {
         type: "object",
-        properties: { contact: { type: "object" } },
+        properties: {
+          contact: {
+            ...contactSchema,
+            description: "Contact payload used by Freshsales contacts endpoint.",
+          },
+        },
         required: ["contact"],
       },
     },
@@ -120,7 +188,13 @@ function getTools() {
       description: "Edit an existing contact by id.",
       inputSchema: {
         type: "object",
-        properties: { id: { type: "number" }, contact: { type: "object" } },
+        properties: {
+          id: { type: "number", description: "Freshsales contact ID." },
+          contact: {
+            ...contactSchema,
+            description: "Partial contact payload with fields to update.",
+          },
+        },
         required: ["id", "contact"],
       },
     },
@@ -138,7 +212,12 @@ function getTools() {
       description: "Create a note in Freshsales.",
       inputSchema: {
         type: "object",
-        properties: { note: { type: "object" } },
+        properties: {
+          note: {
+            ...noteSchema,
+            description: "Note payload used by Freshsales notes endpoint.",
+          },
+        },
         required: ["note"],
       },
     },
@@ -147,7 +226,13 @@ function getTools() {
       description: "Edit an existing note by id.",
       inputSchema: {
         type: "object",
-        properties: { id: { type: "number" }, note: { type: "object" } },
+        properties: {
+          id: { type: "number", description: "Freshsales note ID." },
+          note: {
+            ...noteSchema,
+            description: "Partial note payload with fields to update.",
+          },
+        },
         required: ["id", "note"],
       },
     },
@@ -165,7 +250,12 @@ function getTools() {
       description: "Create a deal in Freshsales.",
       inputSchema: {
         type: "object",
-        properties: { deal: { type: "object" } },
+        properties: {
+          deal: {
+            ...dealSchema,
+            description: "Deal payload used by Freshsales deals endpoint.",
+          },
+        },
         required: ["deal"],
       },
     },
@@ -174,7 +264,13 @@ function getTools() {
       description: "Edit an existing deal by id.",
       inputSchema: {
         type: "object",
-        properties: { id: { type: "number" }, deal: { type: "object" } },
+        properties: {
+          id: { type: "number", description: "Freshsales deal ID." },
+          deal: {
+            ...dealSchema,
+            description: "Partial deal payload with fields to update.",
+          },
+        },
         required: ["id", "deal"],
       },
     },
@@ -192,7 +288,13 @@ function getTools() {
       description: "Create an appointment in Freshsales.",
       inputSchema: {
         type: "object",
-        properties: { appointment: { type: "object" } },
+        properties: {
+          appointment: {
+            ...appointmentSchema,
+            description:
+              "Appointment payload used by Freshsales appointments endpoint.",
+          },
+        },
         required: ["appointment"],
       },
     },
@@ -201,7 +303,13 @@ function getTools() {
       description: "Edit an existing appointment by id.",
       inputSchema: {
         type: "object",
-        properties: { id: { type: "number" }, appointment: { type: "object" } },
+        properties: {
+          id: { type: "number", description: "Freshsales appointment ID." },
+          appointment: {
+            ...appointmentSchema,
+            description: "Partial appointment payload with fields to update.",
+          },
+        },
         required: ["id", "appointment"],
       },
     },
