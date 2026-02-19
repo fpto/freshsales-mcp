@@ -16,7 +16,15 @@ const normalizeBaseUrl = (value = "") => {
   return `https://${trimmed}`;
 };
 
-const BASE_URL = normalizeBaseUrl(process.env.FRESHSALES_BASE_URL || "");
+const ensureApiBasePath = (value = "") => {
+  if (!value) return "";
+  if (/\/crm\/sales\/api$/i.test(value) || /\/api$/i.test(value)) return value;
+  return `${value}/crm/sales/api`;
+};
+
+const BASE_URL = ensureApiBasePath(
+  normalizeBaseUrl(process.env.FRESHSALES_BASE_URL || ""),
+);
 
 if (!API_KEY || !BASE_URL) {
   console.error("Missing required env vars: FRESHSALES_API_KEY and FRESHSALES_BASE_URL");
