@@ -16,10 +16,10 @@
       "runtime": "@vercel/node@3.2.0"
     }
   },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/mcp",
-      "dest": "/api/mcp.js"
+      "source": "/mcp",
+      "destination": "/api/mcp.js"
     }
   ]
 }
