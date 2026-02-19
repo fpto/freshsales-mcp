@@ -33,7 +33,7 @@ const http = axios.create({
 });
 
 const toToolResult = (data) => ({
-  content: [{ type: "json", json: data }],
+  content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
 });
 
 async function searchContact(query) {
