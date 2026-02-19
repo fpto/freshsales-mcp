@@ -108,6 +108,69 @@ async function runTool(name, args = {}) {
 }
 
 function getTools() {
+  const contactSchema = {
+    type: "object",
+    properties: {
+      first_name: { type: "string", description: "Contact first name." },
+      last_name: { type: "string", description: "Contact last name." },
+      email: { type: "string", description: "Primary email address." },
+      mobile_number: { type: "string", description: "Mobile phone number." },
+      work_number: { type: "string", description: "Work phone number." },
+      city: { type: "string", description: "City." },
+    },
+    additionalProperties: true,
+  };
+
+  const noteSchema = {
+    type: "object",
+    properties: {
+      description: { type: "string", description: "Note content." },
+      targetable_type: {
+        type: "string",
+        description: "Entity type, usually 'Contact'.",
+      },
+      targetable_id: {
+        type: "number",
+        description: "ID of the related entity.",
+      },
+    },
+    required: ["description", "targetable_type", "targetable_id"],
+    additionalProperties: true,
+  };
+
+  const dealSchema = {
+    type: "object",
+    properties: {
+      name: { type: "string", description: "Deal name." },
+      amount: { type: "number", description: "Deal value." },
+      expected_close: {
+        type: "string",
+        description: "Expected close date (YYYY-MM-DD).",
+      },
+      contact_id: { type: "number", description: "Primary contact ID." },
+      stage_id: { type: "number", description: "Sales stage ID." },
+    },
+    additionalProperties: true,
+  };
+
+  const appointmentSchema = {
+    type: "object",
+    properties: {
+      title: { type: "string", description: "Appointment title." },
+      from_date: {
+        type: "string",
+        description: "Start datetime in ISO 8601 format.",
+      },
+      end_date: {
+        type: "string",
+        description: "End datetime in ISO 8601 format.",
+      },
+      owner_id: { type: "number", description: "Owner user ID." },
+      contact_id: { type: "number", description: "Related contact ID." },
+    },
+    additionalProperties: true,
+  };
+
   return [
     {
       name: "search_contact",
