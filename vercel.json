@@ -1,14 +1,25 @@
 {
   "version": 2,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    }
+  ],
   "functions": {
     "api/mcp.js": {
       "runtime": "@vercel/node@3.2.0"
     }
   },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/mcp",
-      "dest": "/api/mcp.js"
+      "source": "/mcp",
+      "destination": "/api/mcp.js"
     }
   ]
 }
