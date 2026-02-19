@@ -8,12 +8,11 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import axios from "axios";
 
-// --- CONFIGURACIÓN ---
 const API_KEY = process.env.FRESHSALES_API_KEY;
 const BASE_URL = (process.env.FRESHSALES_BASE_URL || "").replace(/\/$/, "");
 
 if (!API_KEY || !BASE_URL) {
-  console.error("Error: Faltan variables de entorno");
+  console.error("Missing required env vars: FRESHSALES_API_KEY and FRESHSALES_BASE_URL");
   process.exit(1);
 }
 
@@ -25,247 +24,217 @@ const http = axios.create({
   },
 });
 
-// --- HELPERS ---
+const toToolResult = (data) => ({
+  content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+});
 
-async function findContactId(query) {
-  try {
-    const res = await http.get("/search", {
-      params: { q: query, include: "contact" }
-    });
-    
-    const results = res.data || [];
-    const match = results.find(item => item.type === "contact" || item.entity_type === "contact");
-    return match ? (match.id || match.entity_id) : null;
-  } catch (err) {
-    console.error("Error en búsqueda:", err.message);
-    return null;
-  }
-}
+async function searchEntity(entity, query) {
+  const res = await http.get("/search", {
+    params: { q: query, include: entity },
+  });
 
-const cleanText = (text) => text || "No especificado";
-
-// --- LÓGICA DE NEGOCIO ---
-
-// 1. Obtener Ficha
-async function getClientBrief(query) {
-  try {
-    const contactId = await findContactId(query);
-    if (!contactId) return `No se encontró al cliente: "${query}"`;
-
-    const detailRes = await http.get(`/contacts/${contactId}`);
-    const c = detailRes.data.contact;
-    const cf = c.custom_field || {};
-
-    let recentNotes = [];
-    try {
-      const notesRes = await http.get(`/contacts/${contactId}/notes`, {
-        params: { sort: "created_at", sort_type: "desc", per_page: 3 }
-      });
-      recentNotes = notesRes.data?.notes || [];
-    } catch (e) { /* ignorar error de notas */ }
-
-    return {
-      type: "CLIENT_BRIEF",
-      cliente: {
-        nombre: c.display_name,
-        email: c.email,
-        celular: c.mobile_number,
-        telefono_trabajo: c.work_number,
-        ubicacion: c.city || c.address
-      },
-      perfil_facebook: {
-        presupuesto: cleanText(cf.cf_techo_de_presupuesto_fb),
-        zona_interes: cleanText(cf.cf_zonas_de_interes),
-        tiempo_decision: cleanText(cf.cf_tiempo_decision),
-        precalificado: cleanText(cf.cf_precalificado_fb)
-      },
-      historial_reciente: recentNotes.map(n => ({
-        fecha: new Date(n.created_at).toLocaleDateString(),
-        nota: n.description
-      }))
-    };
-  } catch (err) {
-    return `Error: ${err.message}`;
-  }
-}
-
-// 2. Crear Contacto
-async function createContact(params) {
-  const { name, email, phone, city } = params;
-
-  let first_name = "";
-  let last_name = name;
-  if (name && name.includes(" ")) {
-    const parts = name.trim().split(" ");
-    if (parts.length > 1) {
-      last_name = parts.pop(); 
-      first_name = parts.join(" "); 
-    }
-  }
-
-  const payload = {
-    contact: {
-      first_name, last_name, email,
-      mobile_number: phone,
-      city
-    }
+  return {
+    success: true,
+    entity,
+    query,
+    results: res.data,
   };
+}
 
-  try {
-    const res = await http.post("/contacts", payload);
-    const newContact = res.data.contact;
-    return {
-      success: true,
-      message: `Contacto creado: ${newContact.display_name} (ID: ${newContact.id})`,
-    };
-  } catch (err) {
-    if (err.response?.status === 409) return `Error: Ya existe un contacto con ese dato.`;
-    return `Error creando: ${err.message}`;
+async function createEntity(endpoint, wrapperKey, payload) {
+  const res = await http.post(endpoint, { [wrapperKey]: payload });
+  return {
+    success: true,
+    entity: wrapperKey,
+    data: res.data[wrapperKey] ?? res.data,
+  };
+}
+
+async function editEntity(endpoint, wrapperKey, id, payload) {
+  const res = await http.put(`${endpoint}/${id}`, { [wrapperKey]: payload });
+  return {
+    success: true,
+    entity: wrapperKey,
+    id,
+    data: res.data[wrapperKey] ?? res.data,
+  };
+}
+
+async function runTool(name, args = {}) {
+  switch (name) {
+    case "search_contacts":
+      return searchEntity("contact", args.query);
+    case "create_contact":
+      return createEntity("/contacts", "contact", args.contact);
+    case "edit_contact":
+      return editEntity("/contacts", "contact", args.id, args.contact);
+
+    case "search_notes":
+      return searchEntity("note", args.query);
+    case "create_note":
+      return createEntity("/notes", "note", args.note);
+    case "edit_note":
+      return editEntity("/notes", "note", args.id, args.note);
+
+    case "search_deals":
+      return searchEntity("deal", args.query);
+    case "create_deal":
+      return createEntity("/deals", "deal", args.deal);
+    case "edit_deal":
+      return editEntity("/deals", "deal", args.id, args.deal);
+
+    case "search_appointments":
+      return searchEntity("appointment", args.query);
+    case "create_appointment":
+      return createEntity("/appointments", "appointment", args.appointment);
+    case "edit_appointment":
+      return editEntity("/appointments", "appointment", args.id, args.appointment);
+
+    default:
+      throw new Error(`Unknown tool: ${name}`);
   }
 }
 
-// 3. Modificar Contacto
-async function modifyContactDetails(params) {
-  const { query, phone, work_phone, email, city } = params;
-  console.error(`[DEBUG] Modificando contacto: ${query}`);
-
-  try {
-    const contactId = await findContactId(query);
-    if (!contactId) return `No se encontró al contacto: "${query}"`;
-
-    const contactPayload = {};
-
-    if (email) contactPayload.email = email;
-    if (phone) contactPayload.mobile_number = phone;      
-    if (work_phone) contactPayload.work_number = work_phone; 
-    if (city) contactPayload.city = city;
-
-    if (Object.keys(contactPayload).length === 0) {
-      return "No enviaste datos para modificar.";
-    }
-
-    const payload = { contact: contactPayload };
-    const res = await http.put(`/contacts/${contactId}`, payload);
-    const updated = res.data.contact;
-
-    return {
-      success: true,
-      message: `✅ Contacto modificado exitosamente.`,
-      datos_nuevos: {
-        nombre: updated.display_name,
-        nuevo_celular: updated.mobile_number,
-        nuevo_trabajo: updated.work_number
-      }
-    };
-
-  } catch (err) {
-    console.error("[DEBUG] Error en modifyContactDetails:", err.response?.data || err.message);
-    if (err.response?.status === 409) return "Error: El número ya pertenece a otro contacto (Campo Único).";
-    return `Error actualizando: ${err.message}`;
-  }
+function getTools() {
+  return [
+    {
+      name: "search_contacts",
+      description: "Search contacts in Freshsales.",
+      inputSchema: {
+        type: "object",
+        properties: { query: { type: "string" } },
+        required: ["query"],
+      },
+    },
+    {
+      name: "create_contact",
+      description: "Create a contact in Freshsales.",
+      inputSchema: {
+        type: "object",
+        properties: { contact: { type: "object" } },
+        required: ["contact"],
+      },
+    },
+    {
+      name: "edit_contact",
+      description: "Edit an existing contact by id.",
+      inputSchema: {
+        type: "object",
+        properties: { id: { type: "number" }, contact: { type: "object" } },
+        required: ["id", "contact"],
+      },
+    },
+    {
+      name: "search_notes",
+      description: "Search notes in Freshsales.",
+      inputSchema: {
+        type: "object",
+        properties: { query: { type: "string" } },
+        required: ["query"],
+      },
+    },
+    {
+      name: "create_note",
+      description: "Create a note in Freshsales.",
+      inputSchema: {
+        type: "object",
+        properties: { note: { type: "object" } },
+        required: ["note"],
+      },
+    },
+    {
+      name: "edit_note",
+      description: "Edit an existing note by id.",
+      inputSchema: {
+        type: "object",
+        properties: { id: { type: "number" }, note: { type: "object" } },
+        required: ["id", "note"],
+      },
+    },
+    {
+      name: "search_deals",
+      description: "Search deals in Freshsales.",
+      inputSchema: {
+        type: "object",
+        properties: { query: { type: "string" } },
+        required: ["query"],
+      },
+    },
+    {
+      name: "create_deal",
+      description: "Create a deal in Freshsales.",
+      inputSchema: {
+        type: "object",
+        properties: { deal: { type: "object" } },
+        required: ["deal"],
+      },
+    },
+    {
+      name: "edit_deal",
+      description: "Edit an existing deal by id.",
+      inputSchema: {
+        type: "object",
+        properties: { id: { type: "number" }, deal: { type: "object" } },
+        required: ["id", "deal"],
+      },
+    },
+    {
+      name: "search_appointments",
+      description: "Search appointments in Freshsales.",
+      inputSchema: {
+        type: "object",
+        properties: { query: { type: "string" } },
+        required: ["query"],
+      },
+    },
+    {
+      name: "create_appointment",
+      description: "Create an appointment in Freshsales.",
+      inputSchema: {
+        type: "object",
+        properties: { appointment: { type: "object" } },
+        required: ["appointment"],
+      },
+    },
+    {
+      name: "edit_appointment",
+      description: "Edit an existing appointment by id.",
+      inputSchema: {
+        type: "object",
+        properties: { id: { type: "number" }, appointment: { type: "object" } },
+        required: ["id", "appointment"],
+      },
+    },
+  ];
 }
-
-// 4. Agregar Nota (Ahora es la única forma de agregar info al historial)
-async function addNote(params) {
-  const { query, content } = params;
-  try {
-    const contactId = await findContactId(query);
-    if (!contactId) return `No encontré al cliente: "${query}"`;
-
-    await http.post("/notes", {
-      note: { description: content, targetable_type: "Contact", targetable_id: contactId }
-    });
-    return { success: true, message: `Nota agregada.` };
-  } catch (err) { return `Error: ${err.message}`; }
-}
-
-// --- SERVIDOR MCP ---
 
 async function main() {
   const server = new Server(
     {
-      name: "freshsales-real-estate",
-      version: "1.6.0",
+      name: "freshsales-basic-mcp",
+      version: "2.0.0",
     },
     {
-      capabilities: {
-        tools: {},
-      },
+      capabilities: { tools: {} },
     }
   );
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-      tools: [
-        {
-          name: "get_client_brief",
-          description: "Obtiene la ficha del cliente.",
-          inputSchema: {
-            type: "object",
-            properties: { query: { type: "string" } },
-            required: ["query"]
-          }
-        },
-        {
-          name: "create_contact",
-          description: "Crea un NUEVO contacto.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              name: { type: "string" },
-              email: { type: "string" },
-              phone: { type: "string" },
-              city: { type: "string" }
-            },
-            required: ["name"]
-          }
-        },
-        {
-          name: "modify_contact_details",
-          description: "AUTORIZADO: Modifica directamente la ficha del contacto. Úsalo para AGREGAR o CAMBIAR el teléfono, email o ciudad. Es la única forma de guardar números de teléfono.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              query: { type: "string", description: "Nombre o Email del contacto" },
-              phone: { type: "string", description: "Campo 'mobile_number' (Celular)" },
-              work_phone: { type: "string", description: "Campo 'work_number' (Trabajo)" },
-              email: { type: "string" },
-              city: { type: "string" }
-            },
-            required: ["query"]
-          }
-        },
-        {
-          name: "add_note",
-          description: "Agrega una nota de texto al historial del cliente. Úsalo para registrar visitas, llamadas o cualquier interacción.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              query: { type: "string", description: "Nombre o Email del cliente" },
-              content: { type: "string", description: "El contenido exacto de la nota" }
-            },
-            required: ["query", "content"]
-          }
-        }
-      ]
-    };
-  });
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: getTools() }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: args } = request.params;
-    
-    switch (name) {
-      case "get_client_brief": return { content: [{ type: "text", text: JSON.stringify(await getClientBrief(args.query), null, 2) }] };
-      case "create_contact": return { content: [{ type: "text", text: JSON.stringify(await createContact(args), null, 2) }] };
-      case "modify_contact_details": return { content: [{ type: "text", text: JSON.stringify(await modifyContactDetails(args), null, 2) }] };
-      case "add_note": return { content: [{ type: "text", text: JSON.stringify(await addNote(args), null, 2) }] };
-      default: throw new Error(`Herramienta desconocida: ${name}`);
+    try {
+      const { name, arguments: args } = request.params;
+      const result = await runTool(name, args);
+      return toToolResult(result);
+    } catch (error) {
+      const message = error.response?.data ?? error.message;
+      return toToolResult({ success: false, error: message });
     }
   });
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Freshsales Real Estate Server (v1.6 - Simplified Notes) Running...");
+  console.error("Freshsales Basic MCP Server (v2.0.0) running...");
 }
 
 main().catch((err) => {
