@@ -7,6 +7,7 @@ import {
 import axios from "axios";
 
 const API_KEY = process.env.FRESHSALES_API_KEY;
+const MCP_ACCESS_TOKEN = process.env.MCP_ACCESS_TOKEN;
 const normalizeBaseUrl = (value = "") => {
   const trimmed = value.trim().replace(/\/$/, "");
   if (!trimmed) return "";
@@ -230,6 +231,15 @@ async function runTool(name, args = {}) {
   }
 }
 
+
+function isAuthorized(req) {
+  const header = req.headers.authorization || req.headers.Authorization;
+  if (!header || typeof header !== "string") return false;
+  if (!header.startsWith("Bearer ")) return false;
+  const token = header.slice("Bearer ".length).trim();
+  return token.length > 0 && token === MCP_ACCESS_TOKEN;
+}
+
 async function createMcpServer() {
   const server = new Server(
     {
@@ -262,10 +272,10 @@ async function createMcpServer() {
 }
 
 export default async function handler(req, res) {
-  if (!API_KEY || !BASE_URL) {
+  if (!API_KEY || !BASE_URL || !MCP_ACCESS_TOKEN) {
     return res.status(500).json({
       error:
-        "Missing required env vars: FRESHSALES_API_KEY and/or FRESHSALES_BASE_URL",
+        "Missing required env vars: FRESHSALES_API_KEY, FRESHSALES_BASE_URL, and/or MCP_ACCESS_TOKEN",
     });
   }
 
@@ -275,6 +285,17 @@ export default async function handler(req, res) {
       error: {
         code: -32000,
         message: "Method not allowed. Use POST.",
+      },
+      id: null,
+    });
+  }
+
+  if (!isAuthorized(req)) {
+    return res.status(401).json({
+      jsonrpc: "2.0",
+      error: {
+        code: -32001,
+        message: "Unauthorized. Provide a valid Bearer token.",
       },
       id: null,
     });
