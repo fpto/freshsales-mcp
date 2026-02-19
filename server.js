@@ -9,7 +9,14 @@ import {
 import axios from "axios";
 
 const API_KEY = process.env.FRESHSALES_API_KEY;
-const BASE_URL = (process.env.FRESHSALES_BASE_URL || "").replace(/\/$/, "");
+const normalizeBaseUrl = (value = "") => {
+  const trimmed = value.trim().replace(/\/$/, "");
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+};
+
+const BASE_URL = normalizeBaseUrl(process.env.FRESHSALES_BASE_URL || "");
 
 if (!API_KEY || !BASE_URL) {
   console.error("Missing required env vars: FRESHSALES_API_KEY and FRESHSALES_BASE_URL");
