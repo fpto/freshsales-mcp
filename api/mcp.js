@@ -11,6 +11,7 @@ import {
   normalizeBaseUrl,
   runTool,
 } from "../freshsales-tools.js";
+import { setCorsHeaders, verifyAccessToken } from "./oauth-utils.js";
 
 const API_KEY = process.env.FRESHSALES_API_KEY;
 const BASE_URL = ensureApiBasePath(
@@ -57,21 +58,26 @@ async function createMcpServer() {
   return server;
 }
 
-function setCorsHeaders(res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Accept, Authorization, Mcp-Session-Id",
-  );
-  res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
-}
-
 export default async function handler(req, res) {
   setCorsHeaders(res);
 
   if (req.method === "OPTIONS") {
     return res.status(204).end();
+  }
+
+  // OAuth: require Bearer token
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Bearer ")) {
+    res.setHeader("WWW-Authenticate", "Bearer");
+    return res.status(401).json({
+      error: "unauthorized",
+      message: "Bearer token required",
+    });
+  }
+
+  if (!verifyAccessToken(auth.slice(7))) {
+    res.setHeader("WWW-Authenticate", 'Bearer error="invalid_token"');
+    return res.status(401).json({ error: "invalid_token" });
   }
 
   if (!API_KEY || !BASE_URL) {

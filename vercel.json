@@ -28,7 +28,7 @@
     }
   ],
   "functions": {
-    "api/mcp.js": {
+    "api/*.js": {
       "runtime": "@vercel/node@3.2.0",
       "maxDuration": 60
     }
@@ -37,6 +37,26 @@
     {
       "source": "/mcp",
       "destination": "/api/mcp.js"
+    },
+    {
+      "source": "/.well-known/oauth-authorization-server",
+      "destination": "/api/oauth-metadata.js"
+    },
+    {
+      "source": "/.well-known/oauth-protected-resource",
+      "destination": "/api/oauth-protected-resource.js"
+    },
+    {
+      "source": "/oauth/authorize",
+      "destination": "/api/oauth-authorize.js"
+    },
+    {
+      "source": "/oauth/token",
+      "destination": "/api/oauth-token.js"
+    },
+    {
+      "source": "/oauth/register",
+      "destination": "/api/oauth-register.js"
     }
   ]
 }
