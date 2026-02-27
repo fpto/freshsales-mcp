@@ -37,7 +37,7 @@ async function main() {
   const server = new Server(
     {
       name: "freshsales-basic-mcp",
-      version: "2.2.0",
+      version: "3.0.0",
     },
     {
       capabilities: { tools: {} },
@@ -59,7 +59,7 @@ async function main() {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Freshsales Basic MCP Server (v2.2.0) running...");
+  console.error("Freshsales MCP Server (v3.0.0) running...");
 }
 
 main().catch((err) => {
