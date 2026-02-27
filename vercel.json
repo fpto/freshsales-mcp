@@ -7,13 +7,30 @@
         {
           "key": "X-Robots-Tag",
           "value": "noindex, nofollow"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Accept, Authorization, Mcp-Session-Id"
+        },
+        {
+          "key": "Access-Control-Expose-Headers",
+          "value": "Mcp-Session-Id"
         }
       ]
     }
   ],
   "functions": {
     "api/mcp.js": {
-      "runtime": "@vercel/node@3.2.0"
+      "runtime": "@vercel/node@3.2.0",
+      "maxDuration": 60
     }
   },
   "rewrites": [

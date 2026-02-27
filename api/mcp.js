@@ -57,22 +57,27 @@ async function createMcpServer() {
   return server;
 }
 
+function setCorsHeaders(res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Accept, Authorization, Mcp-Session-Id",
+  );
+  res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
+}
+
 export default async function handler(req, res) {
+  setCorsHeaders(res);
+
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
+  }
+
   if (!API_KEY || !BASE_URL) {
     return res.status(500).json({
       error:
         "Missing required env vars: FRESHSALES_API_KEY and/or FRESHSALES_BASE_URL",
-    });
-  }
-
-  if (req.method !== "POST") {
-    return res.status(405).json({
-      jsonrpc: "2.0",
-      error: {
-        code: -32000,
-        message: "Method not allowed. Use POST.",
-      },
-      id: null,
     });
   }
 
