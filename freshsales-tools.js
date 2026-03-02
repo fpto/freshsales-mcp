@@ -660,7 +660,8 @@ export function getTools() {
       inputSchema: createSchema({
         title: STR,
         description: STR,
-        due_date: STR,
+        due_date: { ...STR, description: "Due date in YYYY-MM-DD format" },
+        due_time: { ...STR, description: "Due time in HH:MM (24-hour) format, e.g. '14:30'. Combined with due_date when provided." },
         owner_id: NUM_STR,
         status: { ...NUM_STR, description: "0 = Open, 1 = Completed" },
         task_type_id: NUM_STR,
@@ -678,7 +679,8 @@ export function getTools() {
           id: NUM_STR,
           title: STR,
           description: STR,
-          due_date: STR,
+          due_date: { ...STR, description: "Due date in YYYY-MM-DD format" },
+          due_time: { ...STR, description: "Due time in HH:MM (24-hour) format, e.g. '14:30'. Combined with due_date when provided." },
           owner_id: NUM_STR,
           status: NUM_STR,
           task_type_id: NUM_STR,
@@ -1201,6 +1203,9 @@ export async function runTool(http, name, args = {}) {
         "title", "description", "due_date", "owner_id", "status",
         "task_type_id", "outcome_id", "targetable_type", "targetable_id", "collaborators",
       ]);
+      if (args.due_time && task.due_date) {
+        task.due_date = `${task.due_date}T${args.due_time}:00`;
+      }
       const res = await http.post("/tasks", { task });
       return sanitizeNotesInPayload({ success: true, task: res.data.task ?? res.data });
     }
@@ -1212,6 +1217,9 @@ export async function runTool(http, name, args = {}) {
         "title", "description", "due_date", "owner_id", "status",
         "task_type_id", "outcome_id", "targetable_type", "targetable_id",
       ]);
+      if (args.due_time && task.due_date) {
+        task.due_date = `${task.due_date}T${args.due_time}:00`;
+      }
       const res = await http.put(`/tasks/${id}`, { task });
       return sanitizeNotesInPayload({ success: true, id, task: res.data.task ?? res.data });
     }
