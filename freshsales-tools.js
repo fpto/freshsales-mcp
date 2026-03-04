@@ -693,8 +693,11 @@ export function getTools() {
     },
     {
       name: "freshsales_suite_find_task",
-      description: "Obtiene los detalles de una tarea por ID.",
-      inputSchema: createSchema({ id: NUM_STR }, ["id"]),
+      description: "Obtiene los detalles de una tarea por ID. Permite incluir relaciones como owner, users y targetable.",
+      inputSchema: createSchema({
+        id: NUM_STR,
+        include: { ...STR, description: "Relaciones a incluir, ej: owner,users,targetable" },
+      }, ["id"]),
     },
     {
       name: "freshsales_suite_list_tasks",
@@ -1227,7 +1230,9 @@ export async function runTool(http, name, args = {}) {
     case "freshsales_suite_find_task": {
       const id = parseId(args.id);
       if (!id) throw new Error("id is required");
-      const res = await http.get(`/tasks/${id}`);
+      const params = {};
+      if (args.include) params.include = args.include;
+      const res = await http.get(`/tasks/${id}`, { params });
       return sanitizeNotesInPayload({ success: true, task: res.data.task ?? res.data });
     }
 
