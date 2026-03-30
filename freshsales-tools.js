@@ -829,6 +829,18 @@ export function getTools() {
 
     // ── Notes ─────────────────────────────────────────────────────────────
     {
+      name: "freshsales_suite_list_contact_notes",
+      description: "Lista todas las notas asociadas a un contacto.",
+      inputSchema: createSchema(
+        {
+          search_by: { ...STR, description: "Campo para buscar: contact_id, email, phone, external_id" },
+          value_for_find_by: NUM_STR,
+          page: NUM_STR,
+        },
+        ["search_by", "value_for_find_by"],
+      ),
+    },
+    {
       name: "freshsales_suite_add_note_to_contact",
       description: "Agrega una nota a un contacto.",
       inputSchema: createSchema(
@@ -1348,6 +1360,15 @@ export async function runTool(http, name, args = {}) {
     }
 
     // ── Notes ───────────────────────────────────────────────────────────
+
+    case "freshsales_suite_list_contact_notes": {
+      const id = await resolveContactId(http, args.search_by, args.value_for_find_by);
+      const params = {};
+      if (isDefined(args.page)) params.page = args.page;
+      const res = await http.get(`/contacts/${id}/notes`, { params });
+      const notes = (res.data.notes ?? res.data ?? []).map(sanitizeNoteResponse);
+      return sanitizeNotesInPayload({ success: true, contact_id: id, notes });
+    }
 
     case "freshsales_suite_add_note_to_contact": {
       const id = await resolveContactId(http, args.update_by, args.value_for_update_by);
